@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'Friend View - ' if is_friend_view else '' }}Message Reply Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, {{ '#f06292 0%, #ec407a 100%' if is_friend_view else '#667eea 0%, #764ba2 100%' }});
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, {{ '#f06292 0%, #ec407a 100%' if is_friend_view else '#667eea 0%, #764ba2 100%' }});
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .view-indicator {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .sync-status {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sync-status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .examples-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .example-btn {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .example-btn:hover {
+            background: {{ '#f06292' if is_friend_view else '#667eea' }};
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .conversation-area {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            min-height: 200px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .message-sender {
+            font-weight: 600;
+            color: {{ '#ec407a' if is_friend_view else '#667eea' }};
+            min-width: 80px;
+        }
+
+        .message-content {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            flex: 1;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .message.own-message .message-sender {
+            color: #4caf50;
+        }
+
+        .message.own-message .message-content {
+            background: #e8f5e9;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: {{ '#f06292' if is_friend_view else '#667eea' }};
+        }
+
+        .btn {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, {{ '#f06292 0%, #ec407a 100%' if is_friend_view else '#667eea 0%, #764ba2 100%' }});
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px {{ 'rgba(240, 98, 146, 0.4)' if is_friend_view else 'rgba(102, 126, 234, 0.4)' }};
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-sync {
+            background: #4caf50;
+        }
+
+        .btn-sync:hover {
+            background: #45a049;
+            box-shadow: 0 3px 10px rgba(76, 175, 80, 0.3);
+        }
+
+        .suggestions-container {
+            margin-top: 30px;
+        }
+
+        .suggestion-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .suggestion-card:hover {
+            border-color: {{ '#f06292' if is_friend_view else '#667eea' }};
+            transform: translateX(5px);
+        }
+
+        .suggestion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .suggestion-number {
+            background: {{ '#f06292' if is_friend_view else '#667eea' }};
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .suggestion-tone {
+            padding: 5px 12px;
+            background: white;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #666;
+            text-transform: capitalize;
+        }
+
+        .suggestion-text {
+            font-size: 16px;
+            line-height: 1.5;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .suggestion-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .confidence-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .confidence-bar-bg {
+            width: 100px;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .confidence-bar-fill {
+            height: 100%;
+            background: {{ '#f06292' if is_friend_view else '#667eea' }};
+            transition: width 0.5s ease;
+        }
+
+        .analysis-box {
+            background: {{ '#fce4ec' if is_friend_view else '#f0f4ff' }};
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .analysis-box h3 {
+            color: {{ '#ec407a' if is_friend_view else '#667eea' }};
+            margin-bottom: 10px;
+        }
+
+        .analysis-item {
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid {{ '#f06292' if is_friend_view else '#667eea' }};
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .copy-btn {
+            padding: 5px 10px;
+            background: {{ '#f06292' if is_friend_view else '#667eea' }};
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .copy-btn:hover {
+            background: {{ '#ec407a' if is_friend_view else '#764ba2' }};
+        }
+
+        .copy-btn.copied {
+            background: #4caf50;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .warning-message {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #ffeaa7;
+        }
+
+        .turn-indicator {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .turn-indicator.waiting {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💬 Message Reply Assistant</h1>
+            <p>{{ 'Friend View - Control the other side of the conversation' if is_friend_view else 'User View - Get AI-powered reply suggestions' }}</p>
+            <div class="view-indicator">
+                {{ '👥 Friend Interface' if is_friend_view else '👤 User Interface' }}
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="sync-status" id="syncStatus">
+                <span>🔄</span>
+                <span>Syncing conversations between windows...</span>
+            </div>
+
+            {% if not is_friend_view %}
+            <div class="section">
+                <h2>Try Example Conversations</h2>
+                <div class="examples-container" id="examplesContainer">
+                    <!-- Examples will be loaded here -->
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="section">
+                <h2>Conversation History</h2>
+                <div id="turnIndicator" class="turn-indicator" style="display: none;"></div>
+                <div class="conversation-area" id="conversationArea">
+                    <div id="messages">
+                        <!-- Messages will be displayed here -->
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <input type="text" id="messageInput" placeholder="{{ 'Type your message as Friend...' if is_friend_view else 'Type your message...' }}" />
+                    <button class="btn" onclick="addMessage()">Send Message</button>
+                </div>
+                
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    {% if not is_friend_view %}
+                    <button class="btn" id="generateBtn" onclick="generateSuggestions()">
+                        Generate Reply Suggestions
+                    </button>
+                    {% endif %}
+                    <button class="btn btn-sync" onclick="syncConversation()">
+                        🔄 Sync Conversation
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearConversation()">
+                        Clear Conversation
+                    </button>
+                </div>
+            </div>
+
+            {% if not is_friend_view %}
+            <div id="suggestionsSection" style="display: none;">
+                <div class="section">
+                    <h2>AI Analysis</h2>
+                    <div class="analysis-box" id="analysisBox">
+                        <!-- Analysis will be displayed here -->
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Suggested Replies</h2>
+                    <div class="suggestions-container" id="suggestionsContainer">
+                        <!-- Suggestions will be displayed here -->
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div id="loadingSection" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>{{ 'Syncing...' if is_friend_view else 'Analyzing conversation and generating suggestions...' }}</p>
+            </div>
+
+            <div id="errorSection" style="display: none;">
+                <div class="error-message" id="errorMessage"></div>
+            </div>
+
+            <div id="warningSection" style="display: none;">
+                <div class="warning-message" id="warningMessage"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let conversation = [];
+        const isFriendView = {{ 'true' if is_friend_view else 'false' }};
+        const myName = isFriendView ? 'Friend' : 'You';
+        const otherName = isFriendView ? 'You' : 'Friend';
+        let syncInterval;
+
+        // Initialize on page load
+        window.onload = function() {
+            {% if not is_friend_view %}
+            loadExamples();
+            {% endif %}
+            
+            // Start syncing
+            syncConversation();
+            syncInterval = setInterval(syncConversation, 2000); // Sync every 2 seconds
+            
+            updateTurnIndicator();
+        };
+
+        {% if not is_friend_view %}
+        function loadExamples() {
+            fetch('/examples')
+                .then(response => response.json())
+                .then(examples => {
+                    const container = document.getElementById('examplesContainer');
+                    container.innerHTML = examples.map((example, index) => 
+                        `<button class="example-btn" onclick="loadExample(${index})">${example.title}</button>`
+                    ).join('');
+                    
+                    // Store examples globally
+                    window.examples = examples;
+                })
+                .catch(error => console.error('Error loading examples:', error));
+        }
+
+        function loadExample(index) {
+            conversation = [...window.examples[index].conversation];
+            displayConversation();
+            updateTurnIndicator();
+            document.getElementById('suggestionsSection').style.display = 'none';
+            // Sync to other window
+            pushConversation();
+        }
+        {% endif %}
+
+        function addMessage() {
+            const message = document.getElementById('messageInput').value.trim();
+            
+            if (message) {
+                conversation.push({sender: myName, message: message});
+                displayConversation();
+                updateTurnIndicator();
+                document.getElementById('messageInput').value = '';
+                
+                {% if not is_friend_view %}
+                // Hide suggestions when user sends a message
+                document.getElementById('suggestionsSection').style.display = 'none';
+                {% endif %}
+                
+                // Sync to other window
+                pushConversation();
+            }
+        }
+
+        function displayConversation() {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML = conversation.map(msg => `
+                <div class="message ${msg.sender === myName ? 'own-message' : ''}">
+                    <div class="message-sender">${msg.sender}:</div>
+                    <div class="message-content">${msg.message}</div>
+                </div>
+            `).join('');
+            
+            // Scroll to bottom
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function updateTurnIndicator() {
+            const indicator = document.getElementById('turnIndicator');
+            const generateBtn = document.getElementById('generateBtn');
+            
+            if (conversation.length === 0) {
+                indicator.style.display = 'none';
+                if (generateBtn) generateBtn.disabled = true;
+                return;
+            }
+            
+            const lastSender = conversation[conversation.length - 1].sender;
+            const isMyTurn = lastSender !== myName;
+            
+            indicator.style.display = 'block';
+            
+            if (isFriendView) {
+                if (isMyTurn) {
+                    indicator.textContent = "🟢 Your turn to reply as Friend";
+                    indicator.className = 'turn-indicator';
+                } else {
+                    indicator.textContent = "⏳ Waiting for User to reply...";
+                    indicator.className = 'turn-indicator waiting';
+                }
+            } else {
+                if (isMyTurn) {
+                    indicator.textContent = "🟢 Your turn to reply - you can generate suggestions!";
+                    indicator.className = 'turn-indicator';
+                    if (generateBtn) generateBtn.disabled = false;
+                } else {
+                    indicator.textContent = "⏳ Waiting for Friend to reply...";
+                    indicator.className = 'turn-indicator waiting';
+                    if (generateBtn) generateBtn.disabled = true;
+                }
+            }
+        }
+
+        function clearConversation() {
+            conversation = [];
+            displayConversation();
+            updateTurnIndicator();
+            {% if not is_friend_view %}
+            document.getElementById('suggestionsSection').style.display = 'none';
+            {% endif %}
+            pushConversation();
+        }
+
+        {% if not is_friend_view %}
+        function generateSuggestions() {
+            if (conversation.length < 1) {
+                showError('Please have at least one message in the conversation.');
+                return;
+            }
+
+            const lastMessage = conversation[conversation.length - 1];
+            if (lastMessage.sender === myName) {
+                showWarning('You cannot generate suggestions for your own message. Wait for a reply from your friend first.');
+                return;
+            }
+
+            // Show loading state
+            document.getElementById('loadingSection').style.display = 'block';
+            document.getElementById('suggestionsSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'none';
+            document.getElementById('warningSection').style.display = 'none';
+            document.getElementById('generateBtn').disabled = true;
+
+            fetch('/suggest', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    conversation: conversation,
+                    user_name: myName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loadingSection').style.display = 'none';
+                document.getElementById('generateBtn').disabled = false;
+
+                if (data.success) {
+                    displaySuggestions(data.data);
+                    document.getElementById('suggestionsSection').style.display = 'block';
+                } else {
+                    showError(data.error || 'Failed to generate suggestions');
+                }
+            })
+            .catch(error => {
+                document.getElementById('loadingSection').style.display = 'none';
+                document.getElementById('generateBtn').disabled = false;
+                showError('Network error: ' + error.message);
+            });
+        }
+
+        function displaySuggestions(data) {
+            // Display analysis
+            const analysisBox = document.getElementById('analysisBox');
+            const analysis = data.conversation_analysis;
+            analysisBox.innerHTML = `
+                <div class="analysis-item"><strong>📊 Summary:</strong> ${analysis.summary}</div>
+                <div class="analysis-item"><strong>🎯 Last Message Intent:</strong> ${analysis.last_message_intent}</div>
+                <div class="analysis-item"><strong>💡 Suggested Action:</strong> ${analysis.suggested_action}</div>
+            `;
+
+            // Display suggestions
+            const container = document.getElementById('suggestionsContainer');
+            container.innerHTML = data.suggestions.map((suggestion, index) => `
+                <div class="suggestion-card" onclick="useSuggestion('${suggestion.reply.replace(/'/g, "\\'")}')">
+                    <div class="suggestion-header">
+                        <div class="suggestion-number">${index + 1}</div>
+                        <div class="suggestion-tone">${suggestion.tone}</div>
+                    </div>
+                    <div class="suggestion-text" id="suggestion-${index}">${suggestion.reply}</div>
+                    <div class="suggestion-meta">
+                        <div class="confidence-bar">
+                            <span>Confidence:</span>
+                            <div class="confidence-bar-bg">
+                                <div class="confidence-bar-fill" style="width: ${suggestion.confidence * 100}%"></div>
+                            </div>
+                            <span>${Math.round(suggestion.confidence * 100)}%</span>
+                        </div>
+                        <button class="copy-btn" id="copy-btn-${index}" onclick="copySuggestion(${index}); event.stopPropagation();">
+                            Copy
+                        </button>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 14px; color: #666;">
+                        ${suggestion.explanation}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function useSuggestion(text) {
+            document.getElementById('messageInput').value = text;
+            document.getElementById('messageInput').focus();
+        }
+
+        function copySuggestion(index) {
+            const text = document.getElementById(`suggestion-${index}`).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById(`copy-btn-${index}`);
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+        {% endif %}
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorSection').style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('errorSection').style.display = 'none';
+            }, 5000);
+        }
+
+        function showWarning(message) {
+            document.getElementById('warningMessage').textContent = message;
+            document.getElementById('warningSection').style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('warningSection').style.display = 'none';
+            }, 5000);
+        }
+
+        // Sync functions
+        function syncConversation() {
+            fetch('/sync_conversation')
+                .then(response => response.json())
+                .then(data => {
+                    if (JSON.stringify(data.conversation) !== JSON.stringify(conversation)) {
+                        conversation = data.conversation;
+                        displayConversation();
+                        updateTurnIndicator();
+                        {% if not is_friend_view %}
+                        // Hide suggestions when conversation updates
+                        document.getElementById('suggestionsSection').style.display = 'none';
+                        {% endif %}
+                    }
+                    updateSyncStatus(true);
+                })
+                .catch(error => {
+                    console.error('Sync error:', error);
+                    updateSyncStatus(false);
+                });
+        }
+
+        function pushConversation() {
+            fetch('/sync_conversation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({conversation: conversation})
+            })
+            .then(response => response.json())
+            .then(data => {
+                updateSyncStatus(true);
+            })
+            .catch(error => {
+                console.error('Push error:', error);
+                updateSyncStatus(false);
+            });
+        }
+
+        function updateSyncStatus(success) {
+            const status = document.getElementById('syncStatus');
+            if (success) {
+                status.className = 'sync-status';
+                status.innerHTML = '<span>✅</span><span>Conversations synced</span>';
+            } else {
+                status.className = 'sync-status error';
+                status.innerHTML = '<span>❌</span><span>Sync error - check connection</span>';
+            }
+        }
+
+        // Allow Enter key to add messages
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addMessage();
+            }
+        });
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', function() {
+            if (syncInterval) {
+                clearInterval(syncInterval);
+            }
+        });
+    </script>
+</body>
+</html> 
