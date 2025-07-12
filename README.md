@@ -1,4 +1,4 @@
-# vibe coded a AI-message assistant to have fun with Grok 4 API
+# vibe coded an AI-message assistant to have fun with Grok 4 API
 
 
 to install 
